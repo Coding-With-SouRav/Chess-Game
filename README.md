@@ -61,4 +61,11 @@
 - Visual feedback for game state (check, checkmate, draws)
 - Responsive UI with game state indicators
 
+
+
+
 The application provides a complete chess experience with a competent AI opponent, persistent game saving, and an intuitive graphical interface.
+
+# Demo video
+https://github.com/user-attachments/assets/0e0c877d-e411-4cb9-9104-c70763e19df7
+
