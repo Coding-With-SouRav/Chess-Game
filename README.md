@@ -1,70 +1,61 @@
+# ChessAI Game
 
-## Core Features
+A feature-rich chess application with AI opponent built using Python and Tkinter. This application offers both a fallback chess engine and Stockfish integration for advanced gameplay.
 
-1. **Chess Engine Integration**:
-   - Primary engine: Stockfish (automatically detected from common installation paths)
-   - Fallback engine: Custom negamax algorithm with basic piece-value evaluation
-   - Adjustable difficulty levels (depth 1-3)
+## Features
 
-2. **User Interface**:
-   - Graphical chess board with piece images
-   - Move history panel
-   - Game controls (new game, AI toggle, side selection)
-   - Status information and turn indicators
-   - Start screen with continue/new game options
-   - Game over screen with result display
+- **Dual AI System**: Uses Stockfish engine when available, with fallback to custom negamax algorithm
+- **Game State Management**: Save and resume games automatically
+- **Customizable Settings**: Adjust AI difficulty and choose which color to play
+- **Visual Highlights**: Legal moves and selected pieces are clearly highlighted
+- **Game History**: Complete move history displayed in sidebar
+- **Responsive UI**: Clean interface with game state indicators
+- **Game Over Screens**: Special screens for different game outcomes
 
-3. **Game Management**:
-   - Persistent game state saving/loading
-   - Window geometry preservation
-   - Configurable human player side (white/black)
-   - AI opponent toggle
+## Requirements
 
-## Technical Implementation
+- Python 3.7+
+- Required packages: 
+  - chess
+  - pillow (PIL)
+  - ttkbootstrap
+  - configparser
 
-- **Framework**: Built with tkinter for the GUI
-- **Chess Library**: python-chess for game logic
-- **Image Handling**: PIL/Pillow for piece graphics
-- **Platform Support**: Windows-specific app ID setting
-- **Resource Management**: PyInstaller-compatible resource loading
+## Installation
 
-## Key Components
+1. Clone or download the project files
+2. Install required packages:
+   ```
+   pip install chess pillow ttkbootstrap configparser
+   ```
+3. (Optional) Install Stockfish for enhanced AI:
+   - Windows: Download from [stockfishchess.org](https://stockfishchess.org/)
+   - Linux: `sudo apt install stockfish`
 
-1. **ChessApp Class**: Main application class handling:
-   - UI construction and rendering
-   - Game state management
-   - User input handling
-   - AI move generation
+## How to Use
 
-2. **Board Representation**:
-   - 8×8 grid with alternating light/dark squares
-   - Visual highlights for selected pieces and legal moves
-   - Piece images for all chess pieces
+1. Run `main.py` to start the application
+2. Choose to continue a saved game or start a new one
+3. Select your preferred color (white or black)
+4. Adjust AI difficulty using the dropdown (1-3)
+5. Click on pieces to move them (legal moves will be highlighted)
+6. Use the toggle to enable/disable AI opponent
 
-3. **AI Implementation**:
-   - Multi-threaded AI thinking to prevent UI freezing
-   - Fallback to negamax algorithm if Stockfish unavailable
-   - Depth-limited search based on difficulty setting
+## File Structure
 
-## Usage Flow
+- `main.py` - Main application file
+- `icons/` - Directory containing piece images and application icon
+- `~/.FolderLock&Hide/config.ini` - Configuration and save file location
 
-1. Application starts with option to continue saved game or start new
-2. Human player makes moves by clicking pieces and destination squares
-3. AI automatically moves when it's computer's turn (if enabled)
-4. Game state is automatically saved when closing
-5. Game over conditions are detected and displayed
+## Notes
 
-## Additional Features
+- The application automatically saves your game state when closed
+- If Stockfish is not found, the built-in negamax algorithm will be used
+- Promotion moves are automatically set to Queen
 
-- Promotion handling (automatically to queen)
-- All standard chess rules enforcement
-- Visual feedback for game state (check, checkmate, draws)
-- Responsive UI with game state indicators
+## License
 
-
-
-
-The application provides a complete chess experience with a competent AI opponent, persistent game saving, and an intuitive graphical interface.
+This project is created by SouRav Bhattacharya.
 
 # Demo video
 https://github.com/user-attachments/assets/0e0c877d-e411-4cb9-9104-c70763e19df7
