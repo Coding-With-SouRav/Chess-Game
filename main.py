@@ -3,16 +3,15 @@ import os
 import sys, ctypes
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import chess
 import chess.engine
 from PIL import Image, ImageTk
-
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 
 if sys.platform == "win32":
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.example.ChessAI")
-
-
 
 def resource_path(relative_path):
     """ Get absolute path to resources for both dev and PyInstaller """
@@ -27,12 +26,11 @@ def resource_path(relative_path):
     return full_path
 
 # ---- Configuration ----
-LIGHT_COLOR = "#EDAF4B"
-DARK_COLOR = "#876040"
+LIGHT_COLOR = "#f0d9b5"  # Standard light chess square
+DARK_COLOR = "#b58863"   # Standard dark chess square
 HIGHLIGHT_COLOR = "#7c3aed"
 LEGAL_MOVE_COLOR = "#06b6d4"
-BG = "#20242a"
-SQUARE_SIZE = 80  # all squares same size in pixels
+SQUARE_SIZE = 100  # all squares same size in pixels
 
 # try common stockfish paths if user didn't provide
 COMMON_STOCKFISH_PATHS = [
@@ -91,19 +89,15 @@ def find_best_move_negamax(board: chess.Board, depth: int) -> chess.Move:
     return best_move
 
 # ---- GUI App ----
-class ChessApp(tk.Tk):
+class ChessApp(tb.Window):
     def __init__(self):
-        super().__init__()
+        super().__init__(themename="darkly")
         self.title("AI Chess — By SouRav Bhattacharya")
-        self.configure(bg=BG)
         self.resizable(False, False)
         
-        # self.geometry(f"{8*SQUARE_SIZE+250}x{8*SQUARE_SIZE+100}")
-
-        # self.minsize(f"{8*SQUARE_SIZE+250}", f"{8*SQUARE_SIZE+100}")
-        self.geometry("800x700")
-        self.minsize(1000, 700)
-        self.maxsize(1000, 700)
+        self.geometry("1200x900")
+        self.minsize(1200, 900)
+        self.maxsize(1200, 900)
 
         if sys.platform == "win32":
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.example.Chessai")
@@ -153,7 +147,7 @@ class ChessApp(tk.Tk):
 
     def show_start_options(self):
         """Display continue or restart options on a background image"""
-        self.start_frame = tk.Frame(self)
+        self.start_frame = tb.Frame(self)
         self.start_frame.pack(fill='both', expand=True)
 
         # Load background image
@@ -168,23 +162,26 @@ class ChessApp(tk.Tk):
 
         # Create label with background
         if self.bg_photo:
-            bg_label = tk.Label(self.start_frame, image=self.bg_photo)
+            bg_label = tb.Label(self.start_frame, image=self.bg_photo)
             bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
         
         # Place buttons on top
-        title = tk.Label(self.start_frame, text="Chess Game", 
-                        bg="#0D0C0F" if self.bg_photo else BG, highlightthickness=0, # transparent if image exists
-                        fg='white', font=('Arial', 30, 'bold'))
+        title = tb.Label(self.start_frame, text="Chess Game", 
+                        background="#0E0E0F" ,
+                        foreground="white",
+                        font=('Arial', 30, 'bold'))
         title.pack(pady=(50, 20))
 
-        continue_btn = tk.Button(self.start_frame, text="Continue Saved Game",
-                                command=self.continue_game, font=('Arial', 12, 'bold'), bd=0, activebackground="#63E78F",
-                                bg="#0CF158", fg='black', width=18, height=1)
+        continue_btn = tb.Button(self.start_frame, text="Continue Saved Game",
+                                command=self.continue_game, 
+                                bootstyle="success",
+                                width=18)
         continue_btn.pack(pady=10)
 
-        restart_btn = tk.Button(self.start_frame, text="Start New Game",
-                                command=self.start_new_game, font=('arial', 12, 'bold'),bd=0,activebackground="#379AF0",
-                                bg="#140CF1", fg='white', width=18, height=1)
+        restart_btn = tb.Button(self.start_frame, text="Start New Game",
+                                command=self.start_new_game, 
+                                bootstyle="primary",
+                                width=18)
         restart_btn.pack(pady=10)
 
     def show_game_over_ui(self, result: str):
@@ -193,7 +190,7 @@ class ChessApp(tk.Tk):
         if hasattr(self, "game_over_frame") and self.game_over_frame.winfo_exists():
             return
 
-        self.game_over_frame = tk.Frame(self)
+        self.game_over_frame = tb.Frame(self)
         self.game_over_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # Load background image
@@ -208,20 +205,27 @@ class ChessApp(tk.Tk):
 
         # Create label with background
         if self.game_over_bg_photo:
-            bg_label = tk.Label(self.game_over_frame, image=self.game_over_bg_photo)
+            bg_label = tb.Label(self.game_over_frame, image=self.game_over_bg_photo)
             bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
             bg_label.lower()  # ensure it's behind all widgets
 
         # Place labels and button on top
-        tk.Label(self.game_over_frame, text="Game Over", 
-                font=("Arial", 36, "bold"), fg="white", bg="#0C0B10" if not self.game_over_bg_photo else '#0C0B10', 
-                bd=0).pack(pady=(50,0))
+        tb.Label(self.game_over_frame, text="Game Over", 
+                font=("Arial", 36, "bold"), 
+                background="#0E0E0F", 
+                foreground="white",
+                bootstyle="inverse-dark").pack(pady=(50,0))
 
-        tk.Label(self.game_over_frame, text=result, 
-                font=("Arial", 24, "bold"), fg="#63E78F", bg="#0C0A12" if not self.game_over_bg_photo else '#0C0A12').pack(pady=5)
 
-        tk.Button(self.game_over_frame, text="Start New Game", font=("Arial", 14, "bold"),
-                bg="#140CF1", fg="white", bd=0, activebackground="#379AF0",
+
+        tb.Label(self.game_over_frame, text=result, 
+                font=("Arial", 24, "bold"), 
+                foreground="white",
+                background="#0E0E0F",
+                bootstyle="success").pack(pady=5)
+
+        tb.Button(self.game_over_frame, text="Start New Game", 
+                bootstyle="primary",
                 command=lambda: [self.game_over_frame.destroy(), self.new_game()]).pack(pady=5)
         
     def continue_game(self):
@@ -320,55 +324,39 @@ class ChessApp(tk.Tk):
 
     def _build_ui(self):
         # ---- Top controls ----
-        ctrl = tk.Frame(self, bg=BG)
+        ctrl = tb.Frame(self)
         ctrl.pack(side='top', fill='x', padx=10, pady=8)
 
-
         # New Game button
-        new_btn = tk.Button(ctrl, 
+        new_btn = tb.Button(ctrl, 
                             text="New Game",
                             command=self.new_game, 
-                            font=('Segoe UI', 10, 'bold'), 
-                            bg="#0CF158", 
-                            fg='black', bd=0, 
-                            activeforeground='black', 
-                            cursor='hand2', 
-                            highlightthickness=0, 
-                            highlightbackground="#0CE79A", 
-                            activebackground="#0CE79A",
-                            highlightcolor=DARK_COLOR,
-                            )
+                            bootstyle="success",
+                            width=12)
         new_btn.pack(side='left', padx=6)
 
         # AI toggle button
-        self.ai_toggle_btn = tk.Button(ctrl, text="Disable AI" if self.ai_enabled else "Enable AI",
-                                        command=self.toggle_ai, 
-                                        font=('Segoe UI', 10, 'bold'), 
-                                        bg="#140CF1", 
-                                        fg='white', bd=0, 
-                                        activeforeground='white', 
-                                        cursor='hand2', 
-                                        highlightthickness=0, 
-                                        highlightbackground="#0CA9E7", 
-                                        activebackground="#0CA9E7",
-                                        highlightcolor=DARK_COLOR,
-                                        )
+        self.ai_toggle_btn = tb.Button(ctrl, 
+                                      text="Disable AI" if self.ai_enabled else "Enable AI",
+                                      command=self.toggle_ai, 
+                                      bootstyle="primary",
+                                      width=12)
         self.ai_toggle_btn.pack(side='left', padx=6)
 
         # --- Play as ---
-        tk.Label(ctrl, text="Play as:", bg=BG, fg='white', font=('Arial', 12)).pack(side='left', padx=(12, 4))
+        tb.Label(ctrl, text="Play as:", font=('Arial', 12)).pack(side='left', padx=(12, 4))
         self.side_var = tk.StringVar(value='White' if self.human_color == chess.WHITE else 'Black')
-        side_choice = ttk.Combobox(ctrl, textvariable=self.side_var, values=['White', 'Black'], width=7,
-                                font=('Segoe UI', 10, 'bold'), state='readonly',)
+        side_choice = tb.Combobox(ctrl, textvariable=self.side_var, values=['White', 'Black'], width=7,
+                                font=('Segoe UI', 10), state='readonly', bootstyle="secondary")
         side_choice.pack(side='left', padx=4)
         side_choice.bind("<<ComboboxSelected>>", self.on_side_change)
 
         # --- Difficulty ---
-        tk.Label(ctrl, text="Difficulty:",bg=BG, fg='white', font=('Arial', 12)).pack(side='left', padx=(12, 4))
-        depth_spin = ttk.Spinbox(ctrl, from_=1, to=3, textvariable=self.search_depth, width=3, state="readonly",
-                                font=('Segoe UI', 10, 'bold'))
+        tb.Label(ctrl, text="Difficulty:", font=('Arial', 12)).pack(side='left', padx=(12, 4))
+        depth_spin = tb.Spinbox(ctrl, from_=1, to=3, textvariable=self.search_depth, width=3, state="readonly",
+                                font=('Segoe UI', 10), bootstyle="secondary")
         depth_spin.pack(side='left', padx=2)
-        tk.Label(ctrl, text="(Stockfish if found)", bg=BG, fg='#aaaaaa', font=('Arial', 10)).pack(side='left', padx=(6, 0))
+        tb.Label(ctrl, text="(Stockfish if found)",foreground="gray", font=('Arial', 10), bootstyle="darkly").pack(side='left', padx=(6, 0))
 
         # ---- Load piece images ---- 
         self.piece_images = {}
@@ -384,8 +372,11 @@ class ChessApp(tk.Tk):
                 print(f"Error loading {filename}: {e}")
 
         # ---- Board canvas ----
-        self.board_canvas = tk.Canvas(self, width=8*SQUARE_SIZE, height=8*SQUARE_SIZE, bg=BG, highlightthickness=0)
-        self.board_canvas.pack(side='left', padx=12, pady=8)
+        board_frame = tb.Frame(self)
+        board_frame.pack(side='left', padx=12, pady=8)
+        
+        self.board_canvas = tk.Canvas(board_frame, width=8*SQUARE_SIZE, height=8*SQUARE_SIZE, highlightthickness=0)
+        self.board_canvas.pack()
 
         self.squares = {}  # square index -> rectangle id
         for r in range(8):
@@ -400,19 +391,40 @@ class ChessApp(tk.Tk):
         self.board_canvas.bind("<Button-1>", self.on_canvas_click)
 
         # ---- Right panel ----
-        right = tk.Frame(self, bg=BG, width=350)
+        right = tb.Frame(self, width=350)
         right.pack(side='right', fill='y', padx=(0, 12), pady=8)
         right.pack_propagate(False)
 
-        self.status_label = tk.Label(right, text='Ready', bg=BG, fg='white', font=('arial',12), anchor='w', justify='left')
-        self.status_label.pack(fill='x', padx=6, pady=(0,6))
+        self.status_label = tb.Label(right, text='Ready —     ', foreground="white", 
+                                     background="#222222", 
+                font=('arial', 12), anchor='w', justify='left', bootstyle="darkly")
+        self.status_label.pack(fill='x', padx=6, pady=(0, 6))
 
-        tk.Label(right, text='Moves', bg=BG, fg='white',font=('Times New Roman',25)).pack(anchor='center', padx=6)
-        self.moves_text = tk.Text(right, width=70, height=50, bg='#111217', fg='white', state='disabled',font=('arial',18))
-        self.moves_text.pack(padx=6, pady=4)
+        tb.Label(right, text='Moves', foreground="white", font=('Times New Roman', 25), bootstyle="darkly").pack(anchor='center', padx=6)
+        
+        # Create a frame for the text widget with scrollbar
+        text_frame = tb.Frame(right)
+        text_frame.pack(fill='both', expand=True, padx=6, pady=4)
+        
+        # Create scrollbar
+        scrollbar = tb.Scrollbar(text_frame, bootstyle="round",)
+        scrollbar.pack(side='right', fill='y')
+        
+        self.moves_text = tk.Text(text_frame, width=70, height=50, bg='#111217', fg='white', 
+                                 state='disabled', font=('arial', 18), yscrollcommand=scrollbar.set)
+        self.moves_text.pack(side='left', fill='both', expand=True)
+        
+        scrollbar.config(command=self.moves_text.yview)
+        
+        scrollbar.bind("<Enter>", lambda e: scrollbar.configure(bootstyle="info-round"))
+        scrollbar.bind("<Leave>", lambda e: scrollbar.configure(bootstyle="round"))
 
-        engine_label = tk.Label(right, text=f"Engine: {'Stockfish' if self.engine_available else 'Fallback'}", bg=BG,font=('arial',12), fg='white')
-        engine_label.pack(anchor='w', padx=6, pady=(6,0))
+        self.moves_text.bind("<Enter>", lambda e: scrollbar.configure(bootstyle="info-round"))
+        self.moves_text.bind("<Leave>", lambda e: scrollbar.configure(bootstyle="round"))
+
+        engine_label = tb.Label(right, text=f"Engine: {'Stockfish' if self.engine_available else 'Fallback'}", 
+                               font=('arial', 12), bootstyle="inverse-dark")
+        engine_label.pack(anchor='w', padx=6, pady=(6, 0))
 
     # ---- Board rendering ----
     def _render_board(self):
@@ -445,16 +457,17 @@ class ChessApp(tk.Tk):
 
         # --- Update status label with turn color ---
         turn_color = "White" if self.board.turn == chess.WHITE else "Black"
-        self.status_label.config(text=f"Ready —        {turn_color}",height=2)
+        self.status_label.config(text=f"Ready —        {turn_color} to move")
 
         # Remove previous color circle if exists
         if hasattr(self, "status_label_color_canvas"):
             self.status_label_color_canvas.destroy()
 
         # Add small colored circle as turn indicator
-        self.status_label_color_canvas = tk.Canvas(self.status_label, width=24, height=24, bg=BG, highlightthickness=0)
-        self.status_label_color_canvas.place(x=65, y=5)  # Adjust x/y to align with text
-        self.status_label_color_canvas.create_oval(2,2,22,22, fill=turn_color.lower())
+        self.status_label_color_canvas = tk.Canvas(self.status_label, width=24, height=24,bg="#0E0E0F", highlightthickness=0)
+        self.status_label_color_canvas.place(x=95, y=5)  # Adjust x/y to align with text
+        circle_color = "white" if turn_color == "White" else "black"
+        self.status_label_color_canvas.create_oval(2, 2, 22, 22, fill=circle_color, outline="black")
 
         # --- Check for game over ---
         if self.board.is_checkmate():
@@ -464,19 +477,19 @@ class ChessApp(tk.Tk):
 
         elif self.board.is_stalemate():
             self.status_label.config(text="Stalemate — draw")
-            self.show_game_over_ui("Stalemate! It's a Draw.")
+            self.show_game_over_ui("Stalemate! It's a Draw")
 
         elif self.board.is_insufficient_material():
             self.status_label.config(text="Draw — insufficient material")
-            self.show_game_over_ui("Draw! Insufficient Material.")
+            self.show_game_over_ui("Draw! Insufficient Material")
 
         elif self.board.can_claim_threefold_repetition():
             self.status_label.config(text="Draw — threefold repetition")
-            self.show_game_over_ui("Draw! Threefold Repetition.")
+            self.show_game_over_ui("Draw! Threefold Repetition")
 
         elif self.board.can_claim_fifty_moves():
             self.status_label.config(text="Draw — fifty-move rule")
-            self.show_game_over_ui("Draw! Fifty-Move Rule.")
+            self.show_game_over_ui("Draw! Fifty-Move Rule")
 
     def on_canvas_click(self, event):
         col = event.x // SQUARE_SIZE
@@ -563,15 +576,15 @@ class ChessApp(tk.Tk):
         for mv in self.move_history:
             san_list.append(temp_board.san(mv))
             temp_board.push(mv)
-        lines=[]
-        i=0
-        while i<len(san_list):
-            move_no=(i//2)+1
-            if i+1<len(san_list):
+        lines = []
+        i = 0
+        while i < len(san_list):
+            move_no = (i // 2) + 1
+            if i + 1 < len(san_list):
                 lines.append(f"{move_no}. {san_list[i]} {san_list[i+1]}")
             else:
                 lines.append(f"{move_no}. {san_list[i]}")
-            i+=2
+            i += 2
         self.moves_text.config(state='normal')
         self.moves_text.delete('1.0', tk.END)
         self.moves_text.insert(tk.END, "\n".join(lines))
@@ -639,7 +652,6 @@ class ChessApp(tk.Tk):
         with open(self.config_file, "w") as f:
             config.write(f)
 
-    
 # ---- Run the app ----
 if __name__ == "__main__":
     app = ChessApp()
