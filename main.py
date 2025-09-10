@@ -5,10 +5,11 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 import chess
-import chess.engine
+import chess.engine 
 from PIL import Image, ImageTk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
+import pygame
 
 if sys.platform == "win32":
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.example.ChessAI")
@@ -25,13 +26,11 @@ def resource_path(relative_path):
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Resource not found: {full_path}")
     return full_path
-
 LIGHT_COLOR = "#f0d9b5"  # Standard light chess square
 DARK_COLOR = "#b58863"   # Standard dark chess square
 HIGHLIGHT_COLOR = "#7c3aed"
 LEGAL_MOVE_COLOR = "#06b6d4"
 SQUARE_SIZE = 100
-
 COMMON_STOCKFISH_PATHS = [
     os.getenv("STOCKFISH_PATH"),
     "/usr/bin/stockfish",
@@ -93,12 +92,13 @@ def find_best_move_negamax(board: chess.Board, depth: int) -> chess.Move:
 class ChessApp(tb.Window):
 
     def __init__(self):
-        super().__init__(themename="darkly")
+        super().__init__(themename="superhero")
         self.title("AI Chess — By SouRav Bhattacharya")
         self.resizable(False, False)
         self.geometry("1200x900")
         self.minsize(1200, 900)
         self.maxsize(1200, 900)
+        pygame.mixer.init()
 
         if sys.platform == "win32":
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.example.Chessai")
@@ -124,6 +124,17 @@ class ChessApp(tb.Window):
         self.search_depth = tk.IntVar(value=2)
         self.has_saved_game = False
         self.start_frame = None
+        self.captured_by_white_images = []
+        self.captured_by_black_images = []
+        self.captured_by_white_symbols = []
+        self.captured_by_black_symbols = []
+        self.elemenate_sound = pygame.mixer.Sound(resource_path(r"icons\elemenate.mp3"))
+        self.captured_left_canvas = None
+        self.captured_right_canvas = None
+        self.captured_left_container = None
+        self.captured_right_container = None
+        self.captured_left_window = None
+        self.captured_right_window = None
         self._try_load_stockfish()
         self.load_window_geometry()
         self.load_game_state()
@@ -161,12 +172,12 @@ class ChessApp(tb.Window):
         continue_btn = tb.Button(self.start_frame, text="Continue Saved Game",
                                 command=self.continue_game,
                                 bootstyle="success",
-                                width=18)
+                                width=20)
         continue_btn.pack(pady=10)
         restart_btn = tb.Button(self.start_frame, text="Start New Game",
                                 command=self.start_new_game,
                                 bootstyle="primary",
-                                width=18)
+                                width=20)
         restart_btn.pack(pady=10)
 
     def show_game_over_ui(self, result: str):
@@ -193,7 +204,7 @@ class ChessApp(tb.Window):
         tb.Label(self.game_over_frame, text="Game Over",
                 font=("Arial", 36, "bold"),
                 background="#0E0E0F",
-                foreground="white",
+                foreground="red",
                 bootstyle="inverse-dark").pack(pady=(50,0))
         tb.Label(self.game_over_frame, text=result,
                 font=("Arial", 24, "bold"),
@@ -214,7 +225,36 @@ class ChessApp(tb.Window):
         self.save_game_state(clear=True)
         self.board = chess.Board()
         self.move_history = []
-        self.start_frame.destroy()
+        self.selected_sq = None
+        self.legal_squares = set()
+
+        try:
+            self._clear_captured_pieces()
+
+        except Exception:
+            pass
+
+        try:
+            self.captured_by_white_images.clear()
+            self.captured_by_black_images.clear()
+
+        except Exception:
+            pass
+
+        try:
+            self.captured_by_white_symbols.clear()
+            self.captured_by_black_symbols.clear()
+
+        except Exception:
+            pass
+
+        try:
+
+            if self.start_frame and self.start_frame.winfo_exists():
+                self.start_frame.destroy()
+
+        except Exception:
+            pass
         self._build_ui()
         self._render_board()
         self.after(100, self._maybe_ai_move_on_start)
@@ -231,10 +271,14 @@ class ChessApp(tb.Window):
                     fen = config["GameState"].get("fen", chess.STARTING_FEN)
                     self.board = chess.Board(fen)
                     moves_uci = config["GameState"].get("moves", "").split()
-                    self.move_history = [chess.Move.from_uci(move) for move in moves_uci]
+                    self.move_history = [chess.Move.from_uci(move) for move in moves_uci if move]
                     self.human_color = chess.WHITE if config["GameState"].get("human_color", "white") == "white" else chess.BLACK
                     self.ai_enabled = config["GameState"].getboolean("ai_enabled", True)
                     self.search_depth.set(config["GameState"].getint("search_depth", 3))
+                    cw = config["GameState"].get("captured_by_white", "")
+                    cb = config["GameState"].get("captured_by_black", "")
+                    self.captured_by_white_symbols = list(cw) if cw else []
+                    self.captured_by_black_symbols = list(cb) if cb else []
                     self.has_saved_game = True
 
                 except Exception as e:
@@ -259,10 +303,13 @@ class ChessApp(tb.Window):
             config["GameState"]["moves"] = " ".join(move.uci() for move in self.move_history)
             config["GameState"]["human_color"] = "white" if self.human_color == chess.WHITE else "black"
             config["GameState"]["ai_enabled"] = str(self.ai_enabled)
-            difficulty = config["GameState"].get("difficulty", "Medium")
+            difficulty = config["GameState"].get("difficulty", "Medium") if "GameState" in config else "Medium"
             self.difficulty_var = tk.StringVar(value=difficulty)
             self.on_difficulty_change()
             config["GameState"]["difficulty"] = self.difficulty_var.get()
+            config["GameState"]["captured_by_white"] = "".join(self.captured_by_white_symbols)
+            config["GameState"]["captured_by_black"] = "".join(self.captured_by_black_symbols)
+            config["GameState"]["search_depth"] = str(self.search_depth.get())
 
         if not config.has_section("Geometry"):
             config.add_section("Geometry")
@@ -302,12 +349,18 @@ class ChessApp(tb.Window):
                             bootstyle="success",
                             width=12)
         new_btn.pack(side='left', padx=6)
-        self.ai_toggle_btn = tb.Button(ctrl,
-                                      text="Disable AI" if self.ai_enabled else "Enable AI",
-                                      command=self.toggle_ai,
-                                      bootstyle="primary",
-                                      width=12)
-        self.ai_toggle_btn.pack(side='left', padx=6)
+        self.ai_var = tk.BooleanVar(value=self.ai_enabled)
+        self.ai_status_label = tb.Label(ctrl, text="Disable AI" if self.ai_enabled else "Enable AI",
+                                        font=('Arial', 10))
+        self.ai_status_label.pack(side='left', padx=(6,2))
+        self.ai_toggle_switch = tb.Checkbutton(
+            ctrl,
+            variable=self.ai_var,
+            bootstyle="success-round-toggle",
+            command=self._on_ai_toggle,
+            width=4,
+        )
+        self.ai_toggle_switch.pack(side='left', padx=6)
         tb.Label(ctrl, text="Play as:", font=('Arial', 12)).pack(side='left', padx=(12, 4))
         self.side_var = tk.StringVar(value='White' if self.human_color == chess.WHITE else 'Black')
         side_choice = tb.Combobox(ctrl, textvariable=self.side_var, values=['White', 'Black'], width=7,
@@ -354,26 +407,133 @@ class ChessApp(tb.Window):
         right = tb.Frame(self, width=350)
         right.pack(side='right', fill='y', padx=(0, 12), pady=8)
         right.pack_propagate(False)
-        self.status_label = tb.Label(right, text='Ready —     ', foreground="white",
-                                     background="#222222",
+        top_frame = tb.Frame(right, width=350, height=150)
+        top_frame.pack(side='top', padx=0, pady=8)
+        bottom_frame = tb.Frame(right, width=350, height=310, )
+        bottom_frame.pack(side='bottom', padx=0, pady=(0,13))
+        self.status_label = tb.Label(top_frame, text='Ready —     ', foreground="white",
                 font=('arial', 12), anchor='w', justify='left', bootstyle="darkly")
         self.status_label.pack(fill='x', padx=6, pady=(0, 6))
-        tb.Label(right, text='Moves', foreground="white", font=('Times New Roman', 25), bootstyle="darkly").pack(anchor='center', padx=6)
-        text_frame = tb.Frame(right)
+        tb.Label(top_frame, text='Moves', foreground="white", font=('Times New Roman', 25), bootstyle="darkly").pack(anchor='center', padx=6)
+        text_frame = tb.Frame(top_frame)
         text_frame.pack(fill='both', expand=True, padx=6, pady=4)
-        scrollbar = tb.Scrollbar(text_frame, bootstyle="round",)
+        scrollbar = tb.Scrollbar(text_frame, bootstyle="round")
         scrollbar.pack(side='right', fill='y')
-        self.moves_text = tk.Text(text_frame, width=70, height=50, bg='#111217', fg='white',
-                                 state='disabled', font=('arial', 18), yscrollcommand=scrollbar.set)
-        self.moves_text.pack(side='left', fill='both', expand=True)
+        self.moves_text = tk.Text(text_frame, width=70, height=15, bg="#27282D", fg='white',
+                                 state='disabled', font=('arial', 15), yscrollcommand=scrollbar.set)
+        self.moves_text.pack(side='left', fill='y')
         scrollbar.config(command=self.moves_text.yview)
         scrollbar.bind("<Enter>", lambda e: scrollbar.configure(bootstyle="info-round"))
         scrollbar.bind("<Leave>", lambda e: scrollbar.configure(bootstyle="round"))
-        self.moves_text.bind("<Enter>", lambda e: scrollbar.configure(bootstyle="info-round"))
+        self.moves_text.bind("<Enter>", lambda e: scrollbar.configure(bootstyle="light-round"))
         self.moves_text.bind("<Leave>", lambda e: scrollbar.configure(bootstyle="round"))
-        engine_label = tb.Label(right, text=f"Engine: {'Stockfish' if self.engine_available else 'Fallback'}",
-                               font=('arial', 12), bootstyle="inverse-dark")
-        engine_label.pack(anchor='w', padx=6, pady=(6, 0))
+        bottom_left_frame = tb.Frame(bottom_frame, width=170,height=310,)
+        bottom_left_frame.pack(side='left')
+        bottom_right_frame = tb.Frame(bottom_frame, width=170,height=310, )
+        bottom_right_frame.pack(side='right', padx=5)
+        self.left_title_label = tk.Label(bottom_left_frame, text="White", foreground="white", bg="#0E0E0F", font=('Times New Roman', 20))
+        self.left_title_label.pack(side='top', fill='x', padx=6, pady=(4,2))
+        self.right_title_label = tk.Label(bottom_right_frame, text="Black", foreground="white", bg="#0E0E0F", font=('Times New Roman', 20))
+        self.right_title_label.pack(side='top', fill='x', padx=6, pady=(4,2))
+        bottom_left_scrollbar = tb.Scrollbar(bottom_left_frame, bootstyle="round")
+        bottom_left_scrollbar.pack(side='right', fill='y', padx=(0,2))
+        self.captured_left_canvas = tk.Canvas(bottom_left_frame, highlightthickness=0, width=150, height=250, bg="#1938D4")
+        self.captured_left_canvas.pack(side='left', fill='both', expand=True, padx=6, pady=(0,6))
+        self.captured_left_canvas.configure(yscrollcommand=bottom_left_scrollbar.set)
+        bottom_left_scrollbar.config(command=self.captured_left_canvas.yview)
+        self.captured_left_container = tk.Frame(self.captured_left_canvas, bg="#1938D4")
+        self.captured_left_window = self.captured_left_canvas.create_window((0,0), window=self.captured_left_container, anchor='nw')
+
+        def _left_configure(event):
+
+            try:
+                self.captured_left_canvas.itemconfig(self.captured_left_window, width=event.width)
+                self.captured_left_canvas.configure(scrollregion=self.captured_left_canvas.bbox("all"))
+
+            except Exception:
+                pass
+        self.captured_left_canvas.bind("<Configure>", _left_configure)
+
+        def _left_on_mousewheel(event):
+
+            if sys.platform == "darwin":
+                delta = -1 * int(event.delta)
+                self.captured_left_canvas.yview_scroll(int(delta/30), "units")
+            else:
+                delta = int(-1*(event.delta/120))
+                self.captured_left_canvas.yview_scroll(delta, "units")
+
+        def _left_enter(e):
+            self.captured_left_canvas.bind_all("<MouseWheel>", _left_on_mousewheel)
+            self.captured_left_canvas.bind_all("<Button-4>", lambda ev: self.captured_left_canvas.yview_scroll(-1, "units"))
+            self.captured_left_canvas.bind_all("<Button-5>", lambda ev: self.captured_left_canvas.yview_scroll(1, "units"))
+
+        def _left_leave(e):
+
+            try:
+                self.captured_left_canvas.unbind_all("<MouseWheel>")
+                self.captured_left_canvas.unbind_all("<Button-4>")
+                self.captured_left_canvas.unbind_all("<Button-5>")
+
+            except Exception:
+                pass
+        self.captured_left_canvas.bind("<Enter>", _left_enter)
+        self.captured_left_canvas.bind("<Leave>", _left_leave)
+        bottom_right_scrollbar = tb.Scrollbar(bottom_right_frame, bootstyle="round")
+        bottom_right_scrollbar.pack(side='right', fill='y', padx=(0,2))
+        self.captured_right_canvas = tk.Canvas(bottom_right_frame, highlightthickness=0, width=150, height=250, bg="#1938D4")
+        self.captured_right_canvas.pack(side='left', fill='both', expand=True, padx=6, pady=(0,6))
+        self.captured_right_canvas.configure(yscrollcommand=bottom_right_scrollbar.set)
+        bottom_right_scrollbar.config(command=self.captured_right_canvas.yview)
+        bottom_right_scrollbar.bind("<Enter>", lambda e: bottom_right_scrollbar.configure(bootstyle="info-round"))
+        bottom_right_scrollbar.bind("<Leave>", lambda e: bottom_right_scrollbar.configure(bootstyle="round"))
+        bottom_left_scrollbar.bind("<Enter>", lambda e: bottom_left_scrollbar.configure(bootstyle="info-round"))
+        bottom_left_scrollbar.bind("<Leave>", lambda e: bottom_left_scrollbar.configure(bootstyle="round"))
+        self.captured_right_canvas.bind("<Enter>", lambda e: bottom_right_scrollbar.configure(bootstyle="light-round"))
+        self.captured_right_canvas.bind("<Leave>", lambda e: bottom_right_scrollbar.configure(bootstyle="round"))
+        self.captured_left_canvas.bind("<Enter>", lambda e: bottom_left_scrollbar.configure(bootstyle="light-round"))
+        self.captured_left_canvas.bind("<Leave>", lambda e: bottom_left_scrollbar.configure(bootstyle="round"))
+        self.captured_right_container = tk.Frame(self.captured_right_canvas, bg="#1938D4")
+        self.captured_right_window = self.captured_right_canvas.create_window((0,0), window=self.captured_right_container, anchor='nw')
+
+        def _right_configure(event):
+
+            try:
+                self.captured_right_canvas.itemconfig(self.captured_right_window, width=event.width)
+                self.captured_right_canvas.configure(scrollregion=self.captured_right_canvas.bbox("all"))
+
+            except Exception:
+                pass
+        self.captured_right_canvas.bind("<Configure>", _right_configure)
+
+        def _right_on_mousewheel(event):
+
+            if sys.platform == "darwin":
+                delta = -1 * int(event.delta)
+                self.captured_right_canvas.yview_scroll(int(delta/30), "units")
+            else:
+                delta = int(-1*(event.delta/120))
+                self.captured_right_canvas.yview_scroll(delta, "units")
+
+        def _right_enter(e):
+            self.captured_right_canvas.bind_all("<MouseWheel>", _right_on_mousewheel)
+            self.captured_right_canvas.bind_all("<Button-4>", lambda ev: self.captured_right_canvas.yview_scroll(-1, "units"))
+            self.captured_right_canvas.bind_all("<Button-5>", lambda ev: self.captured_right_canvas.yview_scroll(1, "units"))
+
+        def _right_leave(e):
+
+            try:
+                self.captured_right_canvas.unbind_all("<MouseWheel>")
+                self.captured_right_canvas.unbind_all("<Button-4>")
+                self.captured_right_canvas.unbind_all("<Button-5>")
+
+            except Exception:
+                pass
+        self.captured_right_canvas.bind("<Enter>", _right_enter)
+        self.captured_right_canvas.bind("<Leave>", _right_leave)
+        self.captured_left_canvas.configure(scrollregion=self.captured_left_canvas.bbox("all"))
+        self.captured_right_canvas.configure(scrollregion=self.captured_right_canvas.bbox("all"))
+        self._restore_captured_pieces()
 
     def on_difficulty_change(self, event=None):
         mapping = {"Easy": 1, "Medium": 2, "Hard": 3}
@@ -423,9 +583,6 @@ class ChessApp(tb.Window):
         elif self.board.is_insufficient_material():
             self.status_label.config(text="Draw — insufficient material")
             self.show_game_over_ui("Draw! Insufficient Material")
-        elif self.board.can_claim_threefold_repetition():
-            self.status_label.config(text="Draw — threefold repetition")
-            self.show_game_over_ui("Draw! Threefold Repetition")
         elif self.board.can_claim_fifty_moves():
             self.status_label.config(text="Draw — fifty-move rule")
             self.show_game_over_ui("Draw! Fifty-Move Rule")
@@ -476,11 +633,103 @@ class ChessApp(tb.Window):
     def _push_move(self, move: chess.Move):
 
         try:
+            captured_piece = self.board.piece_at(move.to_square)
+
+            if captured_piece:
+                self.elemenate_sound.play()
+                self._add_captured_piece(captured_piece)
             self.board.push(move)
             self.move_history.append(move)
 
         except Exception as e:
             print("Invalid move push:", e)
+
+    def _add_captured_piece(self, piece: chess.Piece):
+
+        try:
+            sym = piece.symbol()
+            mapping = {
+                "P": "white_pawn.png", "R": "white_rook.png", "N": "white_knight.png", "B": "white_bishop.png", "Q": "white_queen.png", "K": "white_king.png",
+                "p": "black_pawn.png", "r": "black_rook.png", "n": "black_knight.png", "b": "black_bishop.png", "q": "black_queen.png", "k": "black_king.png",
+            }
+            filename = mapping.get(sym) or mapping.get(sym.upper()) or mapping.get(sym.lower())
+
+            if not filename:
+                return
+
+            if piece.color == chess.WHITE:
+                self.captured_by_black_symbols.append(sym)
+            else:
+                self.captured_by_white_symbols.append(sym)
+            CAPTURE_SIZE = (30, 30)
+            pil_img = Image.open(resource_path(os.path.join("icons", filename)))
+            cap_img = pil_img.resize(CAPTURE_SIZE, Image.LANCZOS)
+            photo = ImageTk.PhotoImage(cap_img)
+
+            if piece.color == chess.WHITE:
+                target_frame = self.captured_right_container
+                canvas = self.captured_right_canvas
+                self.captured_by_black_images.append(photo)
+            else:
+                target_frame = self.captured_left_container
+                canvas = self.captured_left_canvas
+                self.captured_by_white_images.append(photo)
+            lbl = tk.Label(target_frame, image=photo, bg="#1938D4", bd=2)
+            lbl.photo = photo
+            lbl.pack(side='top',anchor="center", pady=4, padx=6)
+            canvas.update_idletasks()
+
+            try:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                canvas.yview_moveto(1.0)
+
+            except Exception:
+                pass
+
+        except Exception as e:
+            print("Captured display error:", e)
+
+    def _create_captured_label_from_symbol(self, sym, target_frame, canvas, images_list):
+
+        try:
+            mapping = {
+                "P": "white_pawn.png", "R": "white_rook.png", "N": "white_knight.png", "B": "white_bishop.png", "Q": "white_queen.png", "K": "white_king.png",
+                "p": "black_pawn.png", "r": "black_rook.png", "n": "black_knight.png", "b": "black_bishop.png", "q": "black_queen.png", "k": "black_king.png",
+            }
+            filename = mapping.get(sym) or mapping.get(sym.upper()) or mapping.get(sym.lower())
+
+            if not filename:
+                return
+            CAPTURE_SIZE = (24, 24)
+            pil_img = Image.open(resource_path(os.path.join("icons", filename)))
+            cap_img = pil_img.resize(CAPTURE_SIZE, Image.LANCZOS)
+            photo = ImageTk.PhotoImage(cap_img)
+            lbl = tk.Label(target_frame, image=photo, bg="#1938D4", bd=0)
+            lbl.photo = photo
+            lbl.pack(side='top', anchor="center", pady=4, padx=6)
+            images_list.append(photo)
+            canvas.update_idletasks()
+
+            try:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                canvas.yview_moveto(1.0)
+
+            except Exception:
+                pass
+
+        except Exception as e:
+            print("Restore captured label error:", e)
+
+    def _restore_captured_pieces(self):
+
+        try:
+            for sym in list(self.captured_by_white_symbols):
+                self._create_captured_label_from_symbol(sym, self.captured_left_container, self.captured_left_canvas, self.captured_by_white_images)
+            for sym in list(self.captured_by_black_symbols):
+                self._create_captured_label_from_symbol(sym, self.captured_right_container, self.captured_right_canvas, self.captured_by_black_images)
+
+        except Exception as e:
+            print("Error restoring captured pieces:", e)
 
     def _ai_move_async(self):
 
@@ -559,15 +808,61 @@ class ChessApp(tb.Window):
         self.move_history.clear()
         self.selected_sq = None
         self.legal_squares = set()
+        self._clear_captured_pieces()
         self._render_board()
         self.after(100, self._maybe_ai_move_on_start)
 
-    def toggle_ai(self):
-        self.ai_enabled = not self.ai_enabled
-        self.ai_toggle_btn.config(text="Disable AI" if self.ai_enabled else "Enable AI")
+    def _clear_captured_pieces(self):
+
+        try:
+
+            if self.captured_left_container:
+                for widget in list(self.captured_left_container.winfo_children()):
+                    widget.destroy()
+
+            if self.captured_right_container:
+                for widget in list(self.captured_right_container.winfo_children()):
+                    widget.destroy()
+            self.captured_by_white_images.clear()
+            self.captured_by_black_images.clear()
+            self.captured_by_white_symbols.clear()
+            self.captured_by_black_symbols.clear()
+
+            try:
+
+                if self.captured_left_canvas:
+                    self.captured_left_canvas.configure(scrollregion=self.captured_left_canvas.bbox("all"))
+
+                if self.captured_right_canvas:
+                    self.captured_right_canvas.configure(scrollregion=self.captured_right_canvas.bbox("all"))
+
+            except Exception:
+                pass
+
+        except Exception:
+            pass
+
+    def _on_ai_toggle(self):
+        self.ai_enabled = bool(self.ai_var.get())
+
+        try:
+            self.ai_status_label.config(text="Disable AI" if self.ai_enabled else "Enable AI")
+
+        except Exception:
+            pass
 
         if self.ai_enabled and self.board.turn != self.human_color and not self.board.is_game_over():
             self.after(100, self._ai_move_async)
+
+    def toggle_ai(self):
+        self.ai_enabled = not self.ai_enabled
+
+        try:
+            self.ai_var.set(self.ai_enabled)
+
+        except Exception:
+            pass
+        self._on_ai_toggle()
 
     def on_side_change(self, event):
         val = self.side_var.get()
